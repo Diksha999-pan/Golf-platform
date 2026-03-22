@@ -53,7 +53,7 @@ const handleSave = async (e: React.FormEvent) => {
     setSaving(true)
     try {
       if (editingId) {
-        const updateData: Record<string, unknown> = {
+        const updateData = {
           name: form.name,
           description: form.description,
           website_url: form.website_url,
@@ -64,7 +64,7 @@ const handleSave = async (e: React.FormEvent) => {
         if (error) throw error
         toast.success('Charity updated!')
       } else {
-        const insertData: Record<string, unknown> = {
+        const insertData = {
           name: form.name,
           description: form.description,
           website_url: form.website_url,

@@ -1,17 +1,17 @@
 'use client'
+import { Suspense } from 'react'
 import { useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 
-export default function SuccessPage() {
+function SuccessContent() {
   const router = useRouter()
   const params = useSearchParams()
   const success = params.get('success')
 
   useEffect(() => {
     if (!success) router.push('/dashboard')
-    // Auto-redirect after 5 seconds
     const t = setTimeout(() => router.push('/dashboard'), 5000)
     return () => clearTimeout(t)
   }, [success, router])
@@ -32,5 +32,17 @@ export default function SuccessPage() {
         <p className="text-white/25 text-xs mt-4">Redirecting automatically in 5 seconds…</p>
       </div>
     </div>
+  )
+}
+
+export default function SuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-brand-500/30 border-t-brand-500 rounded-full animate-spin" />
+      </div>
+    }>
+      <SuccessContent />
+    </Suspense>
   )
 }

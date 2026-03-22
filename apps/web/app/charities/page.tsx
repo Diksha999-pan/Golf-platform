@@ -1,140 +1,204 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { Heart, ExternalLink, Search, Star } from 'lucide-react'
-import Link from 'next/link'
+import toast from 'react-hot-toast'
+import { Heart, Plus, Edit2, Trash2, Star } from 'lucide-react'
 
-export default function CharitiesPublicPage() {
+interface CharityForm {
+  name: string
+  description: string
+  website_url: string
+  image_url: string
+  is_featured: boolean
+}
+
+export default function AdminCharitiesPage() {
   const supabase = createClient()
   const [charities, setCharities] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
+  const [showForm, setShowForm] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [form, setForm] = useState<CharityForm>({
+    name: '', description: '', website_url: '', image_url: '', is_featured: false
+  })
 
-  useEffect(() => {
-    supabase.from('charities').select('*').eq('is_active', true)
-      .order('is_featured', { ascending: false })
-      .then(({ data }) => { setCharities(data || []); setLoading(false) })
-  }, [])
+  const fetchCharities = async () => {
+    const { data } = await supabase.from('charities').select('*').order('is_featured', { ascending: false })
+    setCharities(data || [])
+    setLoading(false)
+  }
 
-  const filtered = charities.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.description.toLowerCase().includes(search.toLowerCase())
-  )
+  useEffect(() => { fetchCharities() }, [])
 
-  const featured = filtered.filter(c => c.is_featured)
-  const rest = filtered.filter(c => !c.is_featured)
+  const resetForm = () => {
+    setForm({ name: '', description: '', website_url: '', image_url: '', is_featured: false })
+    setEditingId(null)
+    setShowForm(false)
+  }
+
+  const handleEdit = (charity: any) => {
+    setForm({
+      name: charity.name || '',
+      description: charity.description || '',
+      website_url: charity.website_url || '',
+      image_url: charity.image_url || '',
+      is_featured: charity.is_featured || false,
+    })
+    setEditingId(charity.id)
+    setShowForm(true)
+  }
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      const payload = {
+        name: form.name,
+        description: form.description,
+        website_url: form.website_url,
+        image_url: form.image_url,
+        is_featured: form.is_featured,
+      }
+      if (editingId) {
+        const { error } = await supabase.from('charities').update(payload).eq('id', editingId)
+        if (error) throw error
+        toast.success('Charity updated!')
+      } else {
+        const { error } = await supabase.from('charities').insert({ ...payload, is_active: true })
+        if (error) throw error
+        toast.success('Charity added!')
+      }
+      resetForm()
+      fetchCharities()
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this charity?')) return
+    await supabase.from('charities').delete().eq('id', id)
+    toast.success('Charity deleted')
+    fetchCharities()
+  }
+
+  const handleToggleFeatured = async (id: string, current: boolean) => {
+    await supabase.from('charities').update({ is_featured: !current }).eq('id', id)
+    fetchCharities()
+  }
+
+  const handleToggleActive = async (id: string, current: boolean) => {
+    await supabase.from('charities').update({ is_active: !current }).eq('id', id)
+    fetchCharities()
+  }
 
   return (
-    <main className="min-h-screen">
-      {/* Nav */}
-      <nav className="flex items-center justify-between px-6 py-5 max-w-7xl mx-auto border-b border-white/5">
-        <Link href="/" className="font-display text-2xl font-semibold">
-          Golf<span className="text-brand-400">Gives</span>
-        </Link>
-        <div className="flex items-center gap-3">
-          <Link href="/auth/login" className="btn-secondary py-2 px-4 text-sm">Sign in</Link>
-          <Link href="/auth/signup" className="btn-primary py-2 px-4 text-sm">Get started</Link>
+    <div className="p-8 max-w-5xl">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="font-display text-3xl font-semibold mb-1">Charities</h1>
+          <p className="text-white/40">Manage charity listings and featured spotlights</p>
         </div>
-      </nav>
+        <button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary">
+          <Plus size={16} /> Add charity
+        </button>
+      </div>
 
-      <div className="max-w-5xl mx-auto px-6 py-16">
-        <div className="text-center mb-12">
-          <h1 className="font-display text-5xl font-semibold mb-4">
-            Charities we <span className="gradient-text">support</span>
-          </h1>
-          <p className="text-white/50 text-lg max-w-xl mx-auto">
-            Every subscription contributes to the charities on this page. You choose where your impact goes.
-          </p>
+      {showForm && (
+        <div className="card p-6 mb-8 border-brand-500/20">
+          <h2 className="font-medium mb-5">{editingId ? 'Edit charity' : 'Add new charity'}</h2>
+          <form onSubmit={handleSave} className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="label">Charity name</label>
+                <input type="text" required value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  className="input" placeholder="Cancer Research UK" />
+              </div>
+              <div>
+                <label className="label">Website URL</label>
+                <input type="url" value={form.website_url}
+                  onChange={e => setForm(f => ({ ...f, website_url: e.target.value }))}
+                  className="input" placeholder="https://example.org" />
+              </div>
+            </div>
+            <div>
+              <label className="label">Description</label>
+              <textarea rows={3} required value={form.description}
+                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                className="input" placeholder="Describe the charity..." />
+            </div>
+            <div>
+              <label className="label">Image URL</label>
+              <input type="url" value={form.image_url}
+                onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))}
+                className="input" placeholder="https://example.org/logo.png" />
+            </div>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" checked={form.is_featured}
+                onChange={e => setForm(f => ({ ...f, is_featured: e.target.checked }))}
+                className="w-4 h-4 accent-brand-500" />
+              <span className="text-sm text-white/70">Feature this charity on homepage</span>
+            </label>
+            <div className="flex gap-3 pt-2">
+              <button type="submit" disabled={saving} className="btn-primary">
+                {saving ? 'Saving...' : editingId ? 'Update charity' : 'Add charity'}
+              </button>
+              <button type="button" onClick={resetForm} className="btn-secondary">Cancel</button>
+            </div>
+          </form>
         </div>
+      )}
 
-        <div className="relative mb-8 max-w-sm mx-auto">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
-          <input
-            type="text"
-            placeholder="Search charities..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="input pl-10"
-          />
-        </div>
-
+      <div className="space-y-3">
         {loading ? (
-          <div className="flex justify-center py-20">
+          <div className="flex justify-center py-12">
             <div className="w-8 h-8 border-2 border-brand-500/30 border-t-brand-500 rounded-full animate-spin" />
           </div>
-        ) : (
-          <>
-            {featured.length > 0 && (
-              <div className="mb-10">
-                <div className="flex items-center gap-2 mb-4">
-                  <Star size={14} className="text-gold-400" />
-                  <span className="text-sm font-medium text-gold-400 uppercase tracking-wide">Featured this month</span>
-                </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  {featured.map(c => (
-                    <div key={c.id} className="card-hover p-6 border border-gold-500/20 bg-gold-500/5">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-brand-500/20 flex items-center justify-center flex-shrink-0">
-                          <Heart size={20} className="text-brand-400" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold">{c.name}</h3>
-                            <span className="badge badge-gold text-xs">Featured</span>
-                          </div>
-                          <p className="text-sm text-white/50 mb-3 leading-relaxed">{c.description}</p>
-                          {c.website_url && (
-                            <a href={c.website_url} target="_blank" rel="noopener noreferrer"
-                              className="text-xs text-brand-400 hover:text-brand-300 flex items-center gap-1">
-                              Visit website <ExternalLink size={10} />
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+        ) : charities.length === 0 ? (
+          <div className="card p-12 text-center">
+            <Heart size={32} className="text-white/20 mx-auto mb-3" />
+            <p className="text-white/40">No charities added yet</p>
+          </div>
+        ) : charities.map((charity: any) => (
+          <div key={charity.id} className={`card p-5 flex items-center gap-4 ${!charity.is_active ? 'opacity-50' : ''}`}>
+            <div className="w-10 h-10 rounded-xl bg-brand-500/15 flex items-center justify-center flex-shrink-0">
+              <Heart size={16} className="text-brand-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="font-medium">{charity.name}</span>
+                {charity.is_featured && <Star size={12} className="text-gold-400" fill="currentColor" />}
+                {!charity.is_active && <span className="badge badge-gray text-xs">Inactive</span>}
               </div>
-            )}
-
-            {rest.length > 0 && (
-              <div>
-                <div className="text-sm font-medium text-white/40 uppercase tracking-wide mb-4">All charities</div>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {rest.map(c => (
-                    <div key={c.id} className="card-hover p-5">
-                      <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center mb-3">
-                        <Heart size={16} className="text-white/30" />
-                      </div>
-                      <h3 className="font-medium mb-1">{c.name}</h3>
-                      <p className="text-sm text-white/40 mb-3 line-clamp-2">{c.description}</p>
-                      {c.website_url && (
-                        <a href={c.website_url} target="_blank" rel="noopener noreferrer"
-                          className="text-xs text-brand-400 hover:text-brand-300 flex items-center gap-1">
-                          Learn more <ExternalLink size={10} />
-                        </a>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {filtered.length === 0 && (
-              <div className="text-center py-16 text-white/30">
-                <Heart size={32} className="mx-auto mb-3" />
-                <p>No charities match your search</p>
-              </div>
-            )}
-          </>
-        )}
-
-        <div className="text-center mt-16 p-8 card border-brand-500/20">
-          <h2 className="font-display text-2xl font-medium mb-3">Ready to make an impact?</h2>
-          <p className="text-white/40 mb-6">Subscribe from £9.99/month and choose your charity today.</p>
-          <Link href="/auth/signup" className="btn-gold px-8 py-3">Get started</Link>
-        </div>
+              <p className="text-sm text-white/40 truncate">{charity.description}</p>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button onClick={() => handleToggleFeatured(charity.id, charity.is_featured)}
+                className={`text-xs px-2.5 py-1 rounded border transition-colors ${
+                  charity.is_featured
+                    ? 'border-gold-500/40 text-gold-400 bg-gold-500/10'
+                    : 'border-white/10 text-white/40 hover:text-white/60'
+                }`}>
+                {charity.is_featured ? 'Featured' : 'Set featured'}
+              </button>
+              <button onClick={() => handleToggleActive(charity.id, charity.is_active)}
+                className="text-xs px-2.5 py-1 rounded border border-white/10 text-white/40 hover:text-white/60 transition-colors">
+                {charity.is_active ? 'Deactivate' : 'Activate'}
+              </button>
+              <button onClick={() => handleEdit(charity)} className="p-1.5 text-white/30 hover:text-white/70 transition-colors">
+                <Edit2 size={14} />
+              </button>
+              <button onClick={() => handleDelete(charity.id)} className="p-1.5 text-white/30 hover:text-red-400 transition-colors">
+                <Trash2 size={14} />
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
-    </main>
+    </div>
   )
 }

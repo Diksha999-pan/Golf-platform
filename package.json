@@ -1,0 +1,16 @@
+{
+  "name": "golf-charity-platform",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": ["apps/web", "server"],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:web\" \"npm run dev:server\"",
+    "dev:web": "cd apps/web && npm run dev",
+    "dev:server": "cd server && npm run dev",
+    "build": "cd apps/web && npm run build",
+    "install:all": "npm install && cd apps/web && npm install && cd ../../server && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

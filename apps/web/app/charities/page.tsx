@@ -48,24 +48,31 @@ export default function AdminCharitiesPage() {
     setEditingId(charity.id)
     setShowForm(true)
   }
-
-  const handleSave = async (e: React.FormEvent) => {
+const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
     try {
-      const payload = {
-        name: form.name,
-        description: form.description,
-        website_url: form.website_url,
-        image_url: form.image_url,
-        is_featured: form.is_featured,
-      }
       if (editingId) {
-        const { error } = await supabase.from('charities').update(payload).eq('id', editingId)
+        const updateData: Record<string, unknown> = {
+          name: form.name,
+          description: form.description,
+          website_url: form.website_url,
+          image_url: form.image_url,
+          is_featured: form.is_featured,
+        }
+        const { error } = await supabase.from('charities').update(updateData).eq('id', editingId)
         if (error) throw error
         toast.success('Charity updated!')
       } else {
-        const { error } = await supabase.from('charities').insert({ ...payload, is_active: true })
+        const insertData: Record<string, unknown> = {
+          name: form.name,
+          description: form.description,
+          website_url: form.website_url,
+          image_url: form.image_url,
+          is_featured: form.is_featured,
+          is_active: true,
+        }
+        const { error } = await supabase.from('charities').insert(insertData)
         if (error) throw error
         toast.success('Charity added!')
       }
@@ -77,6 +84,7 @@ export default function AdminCharitiesPage() {
       setSaving(false)
     }
   }
+
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this charity?')) return
